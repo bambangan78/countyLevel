@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US County Level</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 85vh;
+            margin: 0 auto;
+            width: 100%;
+        }
+        #title {
+            text-align: center;
+            font-size: 20px;
+            margin: 10px 0;
+        }
+        .menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        .menu button {
+            display: block;
+            margin: 5px auto;
+            width: 80%;
+        }
+        #reset {
+            display: block;
+            margin: 10px auto;
+            padding: 8px;
+            font-size: 16px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        .legend div {
+            margin-bottom: 5px;
+        }
+        .legend span {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+            border: 1px solid #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="title">Total Points: <span id="total-points">0</span><br><a href="https://tenpages.github.io/us-level/us.html">Idea</a></div>
+    <button id="reset">Reset Map</button>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="us_counties_geojson.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([37.8, -96], 4); // Center of US
+
+        // Variables to track total points and assigned colors
+        let totalPoints = 0;
+        const colorMapping = {
+            0: '#FFFFFF',
+            1: '#FFD700',
+            2: '#FFA500',
+            3: '#FF4500',
+            4: '#FF0000'
+        };
+
+        const textMapping = {
+            0: 'Never Been Here | 0 pts',
+            1: 'Passed Through Here | 1 pt',
+            2: 'Visited Here | 2 pts',
+            3: 'Stayed Here | 3 pts',
+            4: 'Lived Here | 4 pts'
+        };
+
+        const countyLayer = L.geoJSON(usCountiesData, {
+            style: {
+                color: '#000',
+                weight: 1,
+                fillColor: '#FFFFFF',
+                fillOpacity: 0.7
+            },
+            onEachFeature: (feature, layer) => {
+                layer.on('click', (e) => {
+                    openMenu(e, feature, layer);
+                });
+            }
+        }).addTo(map);
+
+        // Function to open the popup menu
+        function openMenu(e, feature, layer) {
+            // Remove any existing menu first
+            document.querySelectorAll('.menu').forEach((menu) => menu.remove());
+
+            const menu = document.createElement('div');
+            menu.className = 'menu';
+            menu.style.left = `${e.containerPoint.x}px`;
+            menu.style.top = `${e.containerPoint.y}px`;
+            menu.style.zIndex = 1000;
+
+            const countyName = document.createElement('h3');
+            countyName.innerText = feature.properties.NAMELSAD + ', ' + feature.properties.STUSPS;
+            menu.appendChild(countyName);
+
+            Object.entries(colorMapping).forEach(([value, color]) => {
+                const button = document.createElement('button');
+                button.innerText = textMapping[value];
+                button.style.background = color;
+                button.onclick = () => {
+                    assignColor(value, layer);
+                    menu.remove();
+                };
+                menu.appendChild(button);
+            });
+
+            // Stop propagation to prevent menu from being immediately removed
+            menu.addEventListener('click', (event) => event.stopPropagation());
+
+            document.body.appendChild(menu);
+        }
+
+        // Function to assign color and update total points
+        function assignColor(value, layer) {
+            const points = parseInt(value);
+            layer.setStyle({ fillColor: colorMapping[points] });
+
+            const prevPoints = parseInt(layer.feature.properties.points || 0);
+            layer.feature.properties.points = points;
+
+            totalPoints += points - prevPoints;
+            document.getElementById('total-points').innerText = totalPoints;
+        }
+
+        // Reset button functionality
+        document.getElementById('reset').onclick = () => {
+            totalPoints = 0;
+            document.getElementById('total-points').innerText = totalPoints;
+
+            countyLayer.eachLayer((layer) => {
+                layer.setStyle({ fillColor: '#FFFFFF' });
+                layer.feature.properties.points = 0;
+            });
+        };
+
+        // Add a legend to the map
+        const legend = document.createElement('div');
+        legend.className = 'legend';
+        Object.entries(colorMapping).forEach(([value, color]) => {
+            const item = document.createElement('div');
+            item.innerHTML = `<span style="background: ${color}"></span>${textMapping[value]}`;
+            legend.appendChild(item);
+        });
+        document.body.appendChild(legend);
+    </script>
+</body>
+</html>
